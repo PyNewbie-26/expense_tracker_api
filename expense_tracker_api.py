@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 
@@ -73,12 +73,18 @@ class ExpenseIn(BaseModel):
     amount: float = Field(..., gt=0)
     category: str
 
-@app.post("/expense")
+@app.post("/expense", status_code=201)
 def add_expense(expense: ExpenseIn):
     added = tracker.add_expense(expense.item, expense.amount, expense.category)
     if not added:
-        return {"Error": "You don't have enough money"}
+        raise HTTPException(status_code=400, detail="Not enough money")
     return tracker.expenses[-1].to_dict()
+
+@app.get("/expenses/{expense_id}")
+def get_expense(expense_id: int):
+    if expense_id < 1 or expense_id > len(tracker.expenses):
+        raise HTTPException(status_code=404, detail="Expense not found")
+    return tracker.expenses[expense_id - 1].to_dict()
 
 @app.get("/expenses")
 def get_expenses():
@@ -91,7 +97,7 @@ def get_expenses():
 def delete_expense(expense_id: int):
     deleted = tracker.delete_expenses(expense_id)
     if not deleted:
-        return {"Error": "Expense not found"}
+        raise HTTPException(status_code=404, detail="Expense not found")
     return {"Success": "Expense deleted"}
 
 @app.get("/total_expenses")
